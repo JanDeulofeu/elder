@@ -122,6 +122,40 @@ public class ConsumerImplTest {
 
     }
 
+    @Test
+    public void buyProductTest2() throws Exception {
+
+        coins = Arrays.asList(0.5, 1.0, 0.2, 0.1);
+
+        VendingMachine vendingMachine = new VendingMachineImpl(coins, slots);
+
+        vendingMachine.setAmountOfExchangePerCoinType(0.5, 1);
+        vendingMachine.setAmountOfExchangePerCoinType(1.0, 1);
+        vendingMachine.setAmountOfExchangePerCoinType(0.2, 0);
+        vendingMachine.setAmountOfExchangePerCoinType(0.1, 1);
+
+        Integer numProductsBefore = vendingMachine.getProductItemQuantityPerSlot(1);
+
+        ConsumerImpl consumer = new ConsumerImpl(vendingMachine);
+
+        List<Double> change = consumer.buyProductPerSlotReturningChange(1, Arrays.asList(0.2, 0.5));
+
+        Integer numProductsAfter = vendingMachine.getProductItemQuantityPerSlot(1);
+
+        assertNotNull(change);
+
+
+        Double changeReturned = calculateExchangeReturned(change);
+
+        assertNotEquals(numProductsAfter, numProductsBefore);
+
+        assertEquals(0.6, changeReturned, 0);
+
+        assertEquals(new Integer(0), vendingMachine.getAmountOfExchangePerCoinType(0.5));
+        assertEquals(new Integer(0), vendingMachine.getAmountOfExchangePerCoinType(0.1));
+
+    }
+
 
 
     private Double calculateExchangeReturned(final List<Double> change) {
