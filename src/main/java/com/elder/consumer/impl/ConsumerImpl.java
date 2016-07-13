@@ -21,10 +21,12 @@ public class ConsumerImpl implements Consumer {
         this.vendingMachine = vendingMachine;
     }
 
+
     @Override
     public Double getItemPriceBySlot(final Integer productSlot) {
         return vendingMachine.getProductItemPricePerSlot(productSlot);
     }
+
 
     @Override
     public List<Double> buyProductPerSlotReturningChange(final Integer productSlot, final List<Double> coins) {
@@ -39,16 +41,33 @@ public class ConsumerImpl implements Consumer {
 
         searchCoinsToReturnTraversing(coinsAvailableOrderedLowValue, BigDecimal.valueOf(valueToReturn), resultCoins);
 
-        validateChangeIsCorrect(valueToReturn, resultCoins);
+        try {
 
-        updateAmountOfChangePerCoinTypeInVendingMachine(resultCoins);
+            validateChangeIsCorrect(valueToReturn, resultCoins);
+
+        } catch (final IllegalStateException e) {
+
+            rollbackExchangeteChangeIsCorrect(resultCoins);
+
+            throw e;
+        }
 
         decreaseNumberOfItemsAvailableInSlot(productSlot);
 
         return resultCoins;
     }
 
+    private void validateInputCoinsAreValid(final List<Double> coins) {
 
+        Set<Double> coinsSet = coins.stream().collect(Collectors.toSet());
+
+        Long countCoinsNotValid = vendingMachine.getCoins().stream().filter(s -> coinsSet.contains(s)).count();
+
+        if (countCoinsNotValid != coinsSet.size()) {
+
+            throw new IllegalArgumentException("Coins inserted not valid");
+        }
+    }
 
     private Double calculateExchangeToReturn(final Integer productSlot, final List<Double> coins) {
 
@@ -65,14 +84,6 @@ public class ConsumerImpl implements Consumer {
         vendingMachine.setProductItemQuantityPerSlot(productSlot, --items);
     }
 
-    private void updateAmountOfChangePerCoinTypeInVendingMachine(final List<Double> resultCoins) {
-
-        for (final Double coin : resultCoins) {
-
-            Integer amount = vendingMachine.getAmountOfExchangePerCoinType(coin);
-            vendingMachine.setAmountOfExchangePerCoinType(coin, --amount);
-        }
-    }
 
     private void validateChangeIsCorrect(final Double valueToReturn, final List<Double> resultCoins) {
 
@@ -89,6 +100,13 @@ public class ConsumerImpl implements Consumer {
         }
     }
 
+    private void rollbackExchangeteChangeIsCorrect(final List<Double> resultCoins) {
+
+        for (final Double res : resultCoins) {
+
+            increaseAmountOfChangePerCoinTypeInVendingMachine(res);
+        }
+    }
 
     private void searchCoinsToReturnTraversing(final List<Double> coinsAvailableOrdered, final BigDecimal valueToReturn, List<Double> resultCoins) {
 
@@ -104,6 +122,8 @@ public class ConsumerImpl implements Consumer {
 
                 resultCoins.add(coin);
 
+                decreaseAmountOfChangePerCoinTypeInVendingMachine(coin);
+
                 searchCoinsToReturnTraversing(coinsAvailableOrdered, newValue, resultCoins);
 
                 if (newValue.longValue() == 0) {
@@ -113,15 +133,16 @@ public class ConsumerImpl implements Consumer {
         }
     }
 
-    private void validateInputCoinsAreValid(final List<Double> coins) {
+    private void decreaseAmountOfChangePerCoinTypeInVendingMachine(final Double coinType) {
 
-        Set<Double> coinsSet = coins.stream().collect(Collectors.toSet());
-
-        Long countCoinsNotValid = vendingMachine.getCoins().stream().filter(s -> coinsSet.contains(s)).count();
-
-        if (countCoinsNotValid != coinsSet.size()) {
-
-            throw new IllegalArgumentException("Coins inserted not valid");
-        }
+        Integer amount = vendingMachine.getAmountOfExchangePerCoinType(coinType);
+        vendingMachine.setAmountOfExchangePerCoinType(coinType, --amount);
     }
+
+    private void increaseAmountOfChangePerCoinTypeInVendingMachine(final Double coinType) {
+
+        Integer amount = vendingMachine.getAmountOfExchangePerCoinType(coinType);
+        vendingMachine.setAmountOfExchangePerCoinType(coinType, ++amount);
+    }
+
 }
